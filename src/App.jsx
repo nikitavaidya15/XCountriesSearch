@@ -1,64 +1,75 @@
-import React, { useState, useEffect } from 'react';
-import CountryCard from './CountryCard';
-import './App.css';
+import { useState, useEffect } from "react";
+import Countries from "./Components/Countries";
+import "./App.css";
 
-const App = () => {
-    const [countries, setCountries] = useState([]);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [error, setError] = useState(null);
+function App() {
+  const [countryData, setCountryData] = useState([]);
+  const [allCountries, setAllCountries] = useState([]);
+  const [debounceTimeout, setDebounceTimeout] = useState(null);
 
-    useEffect(() => {
-        if (searchTerm.trim() === '') {
-            setCountries([]);
-            return;
+  // Fetch API Data
+  useEffect(() => {
+    const getCountriesFlag = async () => {
+      try {
+        const res = await fetch(
+          "https://countries-search-data-prod-812920491762.asia-south1.run.app/countries"
+        );
+        if (!res.ok) {
+          throw new Error("Failed to fetch country data");
         }
-
-        const fetchCountries = async () => {
-            try {
-                setError(null); // Clear previous errors
-                const response = await fetch(`https://restcountries.com/v3.1/name/${searchTerm}?fields=cca3,name,flags`);
-                if (!response.ok) throw new Error('Network response was not ok.');
-                const data = await response.json();
-                setCountries(data);
-            } catch (error) {
-                console.error('Fetch error:', error);
-                setCountries([]); // Clear previous data if error
-                setError('Failed to fetch countries.');
-            }
-        };
-
-        fetchCountries();
-    }, [searchTerm]);
-
-    const handleSearch = (event) => {
-        setSearchTerm(event.target.value.toLowerCase());
+        const data = await res.json();
+        setCountryData(data);
+        setAllCountries(data);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
     };
 
-    return (
-        <div className="App">
-            <input
-                type="text"
-                placeholder="Search for a country..."
-                value={searchTerm}
-                onChange={handleSearch}
-                className="searchBar"
-            />
-            {error && <p className="error">{error}</p>}
-            <div className="countryContainer">
-                {countries.length > 0 ? (
-                    countries.map((country) => (
-                        <CountryCard
-                            key={country.cca3}
-                            name={country.name.common}
-                            flag={country.flags.png}
-                        />
-                    ))
-                ) : (
-                    searchTerm && <p>No countries found.</p>
-                )}
-            </div>
-        </div>
+    getCountriesFlag();
+  }, []);
+
+  // Search Functionality
+  const performSearch = (query) => {
+    if (!query.trim()) {
+      setCountryData(allCountries);
+      return;
+    }
+
+    const filtered = allCountries.filter((country) =>
+      country.common.toLowerCase().includes(query.toLowerCase())
     );
-};
+
+    setCountryData(filtered.sort((a, b) => a.common.localeCompare(b.common)));
+  };
+
+  // Debounce Search Input
+  const debounceSearch = (event) => {
+    clearTimeout(debounceTimeout);
+    const newTimeout = setTimeout(() => {
+      performSearch(event.target.value);
+    }, 500);
+    setDebounceTimeout(newTimeout);
+  };
+
+  return (
+    <div>
+      <div className="input-box">
+        <input
+          type="text"
+          placeholder="Search for countries..."
+          onChange={debounceSearch}
+          className="input"
+        />
+      </div>
+      <div className="App">
+        {countryData.length > 0 ? (
+          countryData.map((data) => <Countries Data={data} key={data.png} />)
+        ) : (
+          <p>No countries found</p>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default App;
